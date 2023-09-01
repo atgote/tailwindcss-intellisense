@@ -4,7 +4,7 @@
   "description": "Intelligent Tailwind CSS tooling for VS Code",
   "author": "Brad Cornes <hello@bradley.dev>",
   "license": "MIT",
-  "version": "0.9.11",
+  "version": "0.10.0",
   "homepage": "https://github.com/tailwindlabs/tailwindcss-intellisense",
   "bugs": {
     "url": "https://github.com/tailwindlabs/tailwindcss-intellisense/issues",
@@ -60,6 +60,11 @@
         "command": "tailwindCSS.showOutput",
         "title": "Tailwind CSS: Show Output",
         "enablement": "tailwindCSS.hasOutputChannel"
+      },
+      {
+        "command": "tailwindCSS.sortSelection",
+        "title": "Tailwind CSS: Sort Selection",
+        "enablement": "editorHasSelection && resourceScheme == file && tailwindCSS.activeTextEditorSupportsClassSorting"
       }
     ],
     "grammars": [
@@ -315,7 +320,7 @@
     "_esbuild": "node ../../esbuild.js src/extension.ts src/server.ts src/cssServer.ts --outdir=dist --external=pnpapi --external=vscode --external=lightningcss --external=@tailwindcss/oxide",
     "dev": "concurrently --raw --kill-others \"npm run watch\" \"npm run check -- --watch\"",
     "watch": "npm run clean && npm run _esbuild -- --watch",
-    "build": "npm run check && npm run clean && npm run _esbuild -- --minify && mv dist/server.js dist/tailwindServer.js && mv dist/cssServer.js dist/tailwindModeServer.js",
+    "build": "npm run check && npm run clean && npm run _esbuild -- --minify && move-file dist/server.js dist/tailwindServer.js && move-file dist/cssServer.js dist/tailwindModeServer.js",
     "package": "vsce package",
     "publish": "vsce publish",
     "copy:notices": "cp ../tailwindcss-language-server/ThirdPartyNotices.txt ./dist/ThirdPartyNotices.txt",
@@ -330,6 +335,7 @@
     "color-name": "1.1.4",
     "concurrently": "7.0.0",
     "minimatch": "5.1.4",
+    "move-file-cli": "3.0.0",
     "normalize-path": "3.0.0",
     "rimraf": "3.0.2",
     "vsce": "2.15.0",
