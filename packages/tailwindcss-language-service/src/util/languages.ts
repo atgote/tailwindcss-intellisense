@@ -54,6 +54,8 @@ export const jsLanguages = [
   'rescript',
   'typescript',
   'typescriptreact',
+  'glimmer-js',
+  'glimmer-ts',
 ]
 
 export const specialLanguages = ['vue', 'svelte']
@@ -64,7 +66,7 @@ const semicolonlessLanguages = ['sass', 'sugarss', 'stylus']
 
 export function isSemicolonlessCssLanguage(
   languageId: string,
-  userLanguages: EditorState['userLanguages'] = {}
+  userLanguages: EditorState['userLanguages'] = {},
 ) {
   return (
     semicolonlessLanguages.includes(languageId) ||

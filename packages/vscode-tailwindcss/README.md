@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/bradlc/vscode-tailwindcss/master/packages/vscode-tailwindcss/.github/banner.png" alt="" />
+<img src="https://raw.githubusercontent.com/tailwindlabs/tailwindcss-intellisense/main/packages/vscode-tailwindcss/.github/banner.png" alt="" />
 
 Tailwind CSS IntelliSense enhances the Tailwind development experience by providing Visual Studio Code users with advanced features such as autocomplete, syntax highlighting, and linting.
 
@@ -6,7 +6,7 @@ Tailwind CSS IntelliSense enhances the Tailwind development experience by provid
 
 **[Install via the Visual Studio Code Marketplace →](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)**
 
-In order for the extension to activate you must have [`tailwindcss` installed](https://tailwindcss.com/docs/installation) and a [Tailwind config file](https://tailwindcss.com/docs/installation#create-your-configuration-file) named `tailwind.config.{js,cjs,mjs,ts}` in your workspace.
+In order for the extension to activate you must have [`tailwindcss` installed](https://tailwindcss.com/docs/installation) and a [Tailwind config file](https://tailwindcss.com/docs/installation#create-your-configuration-file) named `tailwind.config.{js,cjs,mjs,ts,cts,mts}` in your workspace.
 
 ## Features
 
@@ -14,19 +14,19 @@ In order for the extension to activate you must have [`tailwindcss` installed](h
 
 Intelligent suggestions for class names, as well as [CSS functions and directives](https://tailwindcss.com/docs/functions-and-directives/).
 
-<img src="https://raw.githubusercontent.com/bradlc/vscode-tailwindcss/master/packages/vscode-tailwindcss/.github/autocomplete.png" alt="" />
+<img src="https://raw.githubusercontent.com/tailwindlabs/tailwindcss-intellisense/main/packages/vscode-tailwindcss/.github/autocomplete.png" alt="" />
 
 ### Linting
 
 Highlights errors and potential bugs in both your CSS and your markup.
 
-<img src="https://raw.githubusercontent.com/bradlc/vscode-tailwindcss/master/packages/vscode-tailwindcss/.github/linting.png" alt="" />
+<img src="https://raw.githubusercontent.com/tailwindlabs/tailwindcss-intellisense/main/packages/vscode-tailwindcss/.github/linting.png" alt="" />
 
 ### Hover Preview
 
 See the complete CSS for a Tailwind class name by hovering over it.
 
-<img src="https://raw.githubusercontent.com/bradlc/vscode-tailwindcss/master/packages/vscode-tailwindcss/.github/hover.png" alt="" />
+<img src="https://raw.githubusercontent.com/tailwindlabs/tailwindcss-intellisense/main/packages/vscode-tailwindcss/.github/hover.png" alt="" />
 
 ### Tailwind CSS Language Mode
 
@@ -38,7 +38,7 @@ An alternative to VS Code's built-in CSS language mode which maintains full CSS 
 
 Use the `files.associations` setting to tell VS Code to always open `.css` files in Tailwind CSS mode:
 
-```
+```json
 "files.associations": {
   "*.css": "tailwindcss"
 }
@@ -48,7 +48,7 @@ Use the `files.associations` setting to tell VS Code to always open `.css` files
 
 By default VS Code will not trigger completions when editing "string" content, for example within JSX attribute values. Updating the `editor.quickSuggestions` setting may improve your experience:
 
-```
+```json
 "editor.quickSuggestions": {
   "strings": "on"
 }
@@ -68,7 +68,7 @@ When a list of CSS classes is selected this command can be used to sort them in 
 
 ### `tailwindCSS.includeLanguages`
 
-This setting allows you to add additional language support. The key of each entry is the new language ID and the value is any one of the extensions [built-in languages](https://github.com/tailwindlabs/tailwindcss-intellisense/blob/master/packages/tailwindcss-language-service/src/util/languages.ts), depending on how you want the new language to be treated (e.g. `html`, `css`, or `javascript`):
+This setting allows you to add additional language support. The key of each entry is the new language ID and the value is any one of the extensions [built-in languages](https://github.com/tailwindlabs/tailwindcss-intellisense/blob/main/packages/tailwindcss-language-service/src/util/languages.ts), depending on how you want the new language to be treated (e.g. `html`, `css`, or `javascript`):
 
 ```json
 {
@@ -88,7 +88,27 @@ Enable completions when using [Emmet](https://emmet.io/)-style syntax, for examp
 
 ### `tailwindCSS.classAttributes`
 
-The HTML attributes for which to provide class completions, hover previews, linting etc. **Default: `class`, `className`, `ngClass`**
+The HTML attributes for which to provide class completions, hover previews, linting etc. **Default: `class`, `className`, `ngClass`, `class:list`**
+
+### `tailwindCSS.classFunctions`
+
+Functions in which to provide completions, hover previews, linting etc. Currently, this works for both function calls and tagged template literals in JavaScript / TypeScript.
+
+Example:
+
+```json
+{
+  "tailwindCSS.classFunctions": ["tw", "clsx"]
+}
+```
+
+```javascript
+let classes = tw`flex bg-red-500`
+let classes2 = clsx([
+  "flex bg-red-500",
+  { "text-red-500": true }
+])
+```
 
 ### `tailwindCSS.colorDecorators`
 
@@ -152,6 +172,10 @@ Class names on the same HTML element which apply the same CSS property or proper
 
 Class variants not in the recommended order (applies in [JIT mode](https://tailwindcss.com/docs/just-in-time-mode) only). **Default: `warning`**
 
+#### `tailwindCSS.lint.usedBlocklistedClass`
+
+Usage of class names that have been blocklisted via `@source not inline(…)`. **Default: `warning`**
+
 ### `tailwindCSS.inspectPort`
 
 Enable the Node.js inspector agent for the language server and listen on the specified port. **Default: `null`**
@@ -164,17 +188,45 @@ Enable the Node.js inspector agent for the language server and listen on the spe
 
 **Default: `null`**
 
-By default the extension will automatically use the first `tailwind.config.{js,cjs,mjs,ts}` file that it can find to provide Tailwind CSS IntelliSense. Use this setting to manually specify the config file(s) yourself instead.
+This setting allows you to manually specify the CSS entrypoints (for v4 projects) or the Tailwind configuration file (for v3 projects). By default, the extension attempts to detect your project setup automatically:
 
-If your project contains a single Tailwind config file you can specify a string value:
+- **For Tailwind CSS v4**: The extension scans your project for CSS files and determines the "root" CSS file.
+- **For Tailwind CSS v3 (and earlier)**: The extension automatically uses the first `tailwind.config.{js,cjs,mjs,ts,cts,mts}` file it finds.
 
+If IntelliSense is unable to detect your project, you can use this setting to define your config files manually.
+
+#### Tailwind CSS v4.x (CSS entrypoints)
+
+For v4 projects, specify the CSS file(s) that serve as your Tailwind entrypoints.
+
+If your project contains a single CSS entrypoint, set this option to a string:
+
+```json
+"tailwindCSS.experimental.configFile": "src/styles/app.css"
 ```
+
+For projects with multiple CSS entrypoints, use an object where each key is a file path and each value is a glob pattern (or array of patterns) representing the files it applies to:
+
+```json
+"tailwindCSS.experimental.configFile": {
+  "packages/a/src/app.css": "packages/a/src/**",
+  "packages/b/src/app.css": "packages/b/src/**"
+}
+```
+
+#### Tailwind CSS v3.x and earlier (config files)
+
+For v3 projects and below, specify the Tailwind configuration file(s) instead.
+
+If your project contains a single Tailwind config, set this option to a string:
+
+```json
 "tailwindCSS.experimental.configFile": ".config/tailwind.config.js"
 ```
 
-For projects with multiple config files use an object where each key is a config file path and each value is a glob pattern (or array of glob patterns) representing the set of files that the config file applies to:
+For projects with multiple config files, use an object where each key is a config file path and each value is a glob pattern (or array of patterns) representing the files it applies to:
 
-```
+```json
 "tailwindCSS.experimental.configFile": {
   "themes/simple/tailwind.config.js": "themes/simple/**",
   "themes/neon/tailwind.config.js": "themes/neon/**"
@@ -185,7 +237,7 @@ For projects with multiple config files use an object where each key is a config
 
 If you’re having issues getting the IntelliSense features to activate, there are a few things you can check:
 
-- Ensure that you have a Tailwind config file in your workspace and that this is named `tailwind.config.{js,cjs,mjs,ts}`. Check out the Tailwind documentation for details on [creating a config file](https://tailwindcss.com/docs/installation#create-your-configuration-file).
+- Ensure that you have a Tailwind config file in your workspace and that this is named `tailwind.config.{js,cjs,mjs,ts,cts,mts}`. Check out the Tailwind documentation for details on [creating a config file](https://tailwindcss.com/docs/configuration#creating-your-configuration-file).
 - Ensure that the `tailwindcss` module is installed in your workspace, via `npm`, `yarn`, or `pnpm`.
 - Make sure your VS Code settings aren’t causing your Tailwind config file to be hidden/ignored, for example via the `files.exclude` or `files.watcherExclude` settings.
 - Take a look at the language server output by running the `Tailwind CSS: Show Output` command from the command palette. This may show errors that are preventing the extension from activating.

@@ -1,7 +1,7 @@
 // https://github.com/tailwindlabs/tailwindcss/blob/bac5ecf0040aa9a788d1b22d706506146ee831ff/src/lib/getModuleDependencies.js
-import fs from 'fs'
-import path from 'path'
-import normalizePath from 'normalize-path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import { normalizeDriveLetter, normalizePath } from '../utils'
 
 let jsExtensions = ['.js', '.cjs', '.mjs']
 
@@ -43,12 +43,12 @@ function* _getModuleDependencies(
   filename: string,
   base: string,
   seen: Set<string>,
-  ext = path.extname(filename)
+  ext = path.extname(filename),
 ): Generator<string> {
   // Try to find the file
   let absoluteFile = resolveWithExtension(
     path.resolve(base, filename),
-    jsExtensions.includes(ext) ? jsResolutionOrder : tsResolutionOrder
+    jsExtensions.includes(ext) ? jsResolutionOrder : tsResolutionOrder,
   )
   if (absoluteFile === null) return // File doesn't exist
 
@@ -80,8 +80,8 @@ function* _getModuleDependencies(
 
 export function getModuleDependencies(absoluteFilePath: string): string[] {
   return Array.from(
-    _getModuleDependencies(absoluteFilePath, path.dirname(absoluteFilePath), new Set())
+    _getModuleDependencies(absoluteFilePath, path.dirname(absoluteFilePath), new Set()),
   )
     .filter((file) => file !== absoluteFilePath)
-    .map((file) => normalizePath(file))
+    .map((file) => normalizeDriveLetter(normalizePath(file)))
 }

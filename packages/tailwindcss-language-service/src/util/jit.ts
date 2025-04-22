@@ -1,6 +1,8 @@
-import { State } from './state'
+import type { State } from './state'
 import type { Container, Document, Root, Rule, Node, AtRule } from 'postcss'
-import { addPixelEquivalentsToCss, addPixelEquivalentsToValue } from './pixelEquivalents'
+import { addPixelEquivalentsToValue } from './pixelEquivalents'
+import { addEquivalents } from './equivalents'
+import { addThemeValues, inlineThemeValues } from './rewriting'
 
 export function bigSign(bigIntValue) {
   // @ts-ignore
@@ -10,7 +12,7 @@ export function bigSign(bigIntValue) {
 export function generateRules(
   state: State,
   classNames: string[],
-  filter: (rule: Rule) => boolean = () => true
+  filter: (rule: Rule) => boolean = () => true,
 ): { root: Root; rules: Rule[] } {
   let rules: [bigint, Rule][] = state.modules.jit.generateRules
     .module(new Set(classNames), state.jitContext)
@@ -43,14 +45,16 @@ export async function stringifyRoot(state: State, root: Root, uri?: string): Pro
 
   let css = clone.toString()
 
-  if (settings.tailwindCSS.showPixelEquivalents) {
-    css = addPixelEquivalentsToCss(css, settings.tailwindCSS.rootFontSize)
-  }
+  css = addThemeValues(css, state, settings.tailwindCSS)
+  css = addEquivalents(css, settings.tailwindCSS)
+
+  let identSize = state.v4 ? 2 : 4
+  let identPattern = state.v4 ? /^(?:  )+/gm : /^(?:    )+/gm
 
   return css
     .replace(/([^;{}\s])(\n\s*})/g, (_match, before, after) => `${before};${after}`)
-    .replace(/^(?:    )+/gm, (indent: string) =>
-      ' '.repeat((indent.length / 4) * settings.editor.tabSize)
+    .replace(identPattern, (indent: string) =>
+      ' '.repeat((indent.length / identSize) * settings.editor.tabSize),
     )
 }
 
@@ -65,12 +69,18 @@ export async function stringifyDecls(state: State, rule: Rule, uri?: string): Pr
   let settings = await state.editor.getConfiguration(uri)
 
   let result = []
+
   rule.walkDecls(({ prop, value }) => {
+    // In v4 we inline theme values into declarations (this is a no-op in v3)
+    value = inlineThemeValues(value, state).trim()
+
     if (settings.tailwindCSS.showPixelEquivalents) {
       value = addPixelEquivalentsToValue(value, settings.tailwindCSS.rootFontSize)
     }
+
     result.push(`${prop}: ${value};`)
   })
+
   return result.join(' ')
 }
 

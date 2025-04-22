@@ -14,14 +14,14 @@ export interface LanguageModelCache<T> {
 export function getLanguageModelCache<T>(
   maxEntries: number,
   cleanupIntervalTimeInSec: number,
-  parse: (document: TextDocument) => T
+  parse: (document: TextDocument) => T,
 ): LanguageModelCache<T> {
   let languageModels: {
     [uri: string]: { version: number; languageId: string; cTime: number; languageModel: T }
   } = {}
   let nModels = 0
 
-  let cleanupInterval: NodeJS.Timer | undefined = undefined
+  let cleanupInterval: NodeJS.Timeout | undefined = undefined
   if (cleanupIntervalTimeInSec > 0) {
     cleanupInterval = setInterval(() => {
       let cutoffTime = Date.now() - cleanupIntervalTimeInSec * 1000

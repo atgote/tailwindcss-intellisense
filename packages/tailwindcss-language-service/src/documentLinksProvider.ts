@@ -1,55 +1,75 @@
 import type { TextDocument } from 'vscode-languageserver-textdocument'
-import { State } from './util/state'
+import type { State } from './util/state'
 import type { DocumentLink, Range } from 'vscode-languageserver'
-import { isCssDoc } from './util/css'
-import { getLanguageBoundaries } from './util/getLanguageBoundaries'
 import { findAll, indexToPosition } from './util/find'
-import { getTextWithoutComments } from './util/doc'
 import { absoluteRange } from './util/absoluteRange'
 import * as semver from './util/semver'
+import { getCssBlocks } from './util/language-blocks'
+
+const HAS_DRIVE_LETTER = /^[A-Z]:/
 
 export function getDocumentLinks(
   state: State,
   document: TextDocument,
-  resolveTarget: (linkPath: string) => string
-): DocumentLink[] {
-  return getConfigDirectiveLinks(state, document, resolveTarget)
+  resolveTarget: (linkPath: string) => Promise<string>,
+): Promise<DocumentLink[]> {
+  let patterns = [/@config\s*(?<path>'[^']+'|"[^"]+")/g]
+
+  if (state.v4) {
+    patterns.push(
+      /@plugin\s*(?<path>'[^']+'|"[^"]+")/g,
+      /@source(?:\s+not)?\s*(?<path>'[^']+'|"[^"]+")/g,
+      /@import\s*('[^']*'|"[^"]*")\s*(layer\([^)]+\)\s*)?source\((?<path>'[^']*'?|"[^"]*"?)/g,
+      /@reference\s*('[^']*'|"[^"]*")\s*source\((?<path>'[^']*'?|"[^"]*"?)/g,
+      /@tailwind\s*utilities\s*source\((?<path>'[^']*'?|"[^"]*"?)/g,
+    )
+  }
+
+  return getDirectiveLinks(state, document, patterns, resolveTarget)
 }
 
-function getConfigDirectiveLinks(
+async function getDirectiveLinks(
   state: State,
   document: TextDocument,
-  resolveTarget: (linkPath: string) => string
-): DocumentLink[] {
+  patterns: RegExp[],
+  resolveTarget: (linkPath: string) => Promise<string>,
+): Promise<DocumentLink[]> {
   if (!semver.gte(state.version, '3.2.0')) {
     return []
   }
 
   let links: DocumentLink[] = []
-  let ranges: Range[] = []
 
-  if (isCssDoc(state, document)) {
-    ranges.push(undefined)
-  } else {
-    let boundaries = getLanguageBoundaries(state, document)
-    if (!boundaries) return []
-    ranges.push(...boundaries.filter((b) => b.type === 'css').map(({ range }) => range))
-  }
+  for (let block of getCssBlocks(state, document)) {
+    let text = block.text
 
-  for (let range of ranges) {
-    let text = getTextWithoutComments(document, 'css', range)
-    let matches = findAll(/@config\s*(?<path>'[^']+'|"[^"]+")/g, text)
+    let matches: RegExpMatchArray[] = []
+
+    for (let pattern of patterns) {
+      matches.push(...findAll(pattern, text))
+    }
 
     for (let match of matches) {
+      let path = match.groups.path.slice(1, -1)
+
+      // Ignore glob-like paths
+      if (path.includes('*') || path.includes('{') || path.includes('}')) {
+        continue
+      }
+
+      // Ignore Windows-style paths
+      if (path.includes('\\') || HAS_DRIVE_LETTER.test(path)) {
+        continue
+      }
+
+      let range = {
+        start: indexToPosition(text, match.index + match[0].length - match.groups.path.length),
+        end: indexToPosition(text, match.index + match[0].length),
+      }
+
       links.push({
-        target: resolveTarget(match.groups.path.slice(1, -1)),
-        range: absoluteRange(
-          {
-            start: indexToPosition(text, match.index + match[0].length - match.groups.path.length),
-            end: indexToPosition(text, match.index + match[0].length),
-          },
-          range
-        ),
+        target: await resolveTarget(path),
+        range: absoluteRange(range, block.range),
       })
     }
   }

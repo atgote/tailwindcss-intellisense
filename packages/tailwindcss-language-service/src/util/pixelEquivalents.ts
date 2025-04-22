@@ -1,12 +1,15 @@
 import type { Plugin } from 'postcss'
 import parseValue from 'postcss-value-parser'
 import { parse as parseMediaQueryList } from '@csstools/media-query-list-parser'
-import postcss from 'postcss'
 import { isTokenNode } from '@csstools/css-parser-algorithms'
+import type { Comment } from './comments'
+import { applyComments } from './comments'
 
-type Comment = { index: number; value: string }
-
-export function addPixelEquivalentsToValue(value: string, rootFontSize: number): string {
+export function addPixelEquivalentsToValue(
+  value: string,
+  rootFontSize: number,
+  inComment = true,
+): string {
   if (!value.includes('rem')) {
     return value
   }
@@ -21,8 +24,15 @@ export function addPixelEquivalentsToValue(value: string, rootFontSize: number):
       return false
     }
 
-    let commentStr = `/* ${parseFloat(unit.number) * rootFontSize}px */`
-    value = value.slice(0, node.sourceEndIndex) + commentStr + value.slice(node.sourceEndIndex)
+    if (inComment) {
+      let commentStr = ` /* ${parseFloat(unit.number) * rootFontSize}px */`
+      value = value.slice(0, node.sourceEndIndex) + commentStr + value.slice(node.sourceEndIndex)
+
+      return false
+    }
+
+    let commentStr = `${parseFloat(unit.number) * rootFontSize}px`
+    value = value.slice(0, node.sourceIndex) + commentStr + value.slice(node.sourceEndIndex)
 
     return false
   })
@@ -30,36 +40,12 @@ export function addPixelEquivalentsToValue(value: string, rootFontSize: number):
   return value
 }
 
-export function addPixelEquivalentsToCss(css: string, rootFontSize: number): string {
-  if (!css.includes('em')) {
-    return css
-  }
+function getPixelEquivalentsForMediaQuery(params: string): Comment[] {
+  // Media queries in browsers are not affected by the font size on the `html` element but the
+  // initial value of font-size as provided by the browser. This is defaults to 16px universally
+  // so we'll always assume a value of 16px for media queries for correctness.
+  let rootFontSize = 16
 
-  let comments: Comment[] = []
-
-  try {
-    postcss([postcssPlugin({ comments, rootFontSize })]).process(css, { from: undefined }).css
-  } catch {
-    return css
-  }
-
-  return applyComments(css, comments)
-}
-
-function applyComments(str: string, comments: Comment[]): string {
-  let offset = 0
-
-  for (let comment of comments) {
-    let index = comment.index + offset
-    let commentStr = `/* ${comment.value} */`
-    str = str.slice(0, index) + commentStr + str.slice(index)
-    offset += commentStr.length
-  }
-
-  return str
-}
-
-function getPixelEquivalentsForMediaQuery(params: string, rootFontSize: number): Comment[] {
   let comments: Comment[] = []
 
   try {
@@ -84,14 +70,14 @@ function getPixelEquivalentsForMediaQuery(params: string, rootFontSize: number):
   return comments
 }
 
-export function addPixelEquivalentsToMediaQuery(query: string, rootFontSize: number): string {
+export function addPixelEquivalentsToMediaQuery(query: string): string {
   return query.replace(/(?<=^\s*@media\s*).*?$/, (params) => {
-    let comments = getPixelEquivalentsForMediaQuery(params, rootFontSize)
+    let comments = getPixelEquivalentsForMediaQuery(params)
     return applyComments(params, comments)
   })
 }
 
-function postcssPlugin({
+export function equivalentPixelValues({
   comments,
   rootFontSize,
 }: {
@@ -107,12 +93,10 @@ function postcssPlugin({
         }
 
         comments.push(
-          ...getPixelEquivalentsForMediaQuery(atRule.params, rootFontSize).map(
-            ({ index, value }) => ({
-              index: index + atRule.source.start.offset + `@media${atRule.raws.afterName}`.length,
-              value,
-            })
-          )
+          ...getPixelEquivalentsForMediaQuery(atRule.params).map(({ index, value }) => ({
+            index: index + atRule.source.start.offset + `@media${atRule.raws.afterName}`.length,
+            value,
+          })),
         )
       },
     },
@@ -144,4 +128,4 @@ function postcssPlugin({
     },
   }
 }
-postcssPlugin.postcss = true
+equivalentPixelValues.postcss = true

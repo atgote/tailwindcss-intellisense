@@ -1,5 +1,5 @@
 import type { Diagnostic } from 'vscode-languageserver'
-import { DocumentClassName, DocumentClassList } from '../util/state'
+import type { DocumentClassName } from '../util/state'
 
 export enum DiagnosticKind {
   CssConflict = 'cssConflict',
@@ -8,7 +8,9 @@ export enum DiagnosticKind {
   InvalidVariant = 'invalidVariant',
   InvalidConfigPath = 'invalidConfigPath',
   InvalidTailwindDirective = 'invalidTailwindDirective',
+  InvalidSourceDirective = 'invalidSourceDirective',
   RecommendedVariantOrder = 'recommendedVariantOrder',
+  UsedBlocklistedClass = 'usedBlocklistedClass',
 }
 
 export type CssConflictDiagnostic = Diagnostic & {
@@ -18,7 +20,7 @@ export type CssConflictDiagnostic = Diagnostic & {
 }
 
 export function isCssConflictDiagnostic(
-  diagnostic: AugmentedDiagnostic
+  diagnostic: AugmentedDiagnostic,
 ): diagnostic is CssConflictDiagnostic {
   return diagnostic.code === DiagnosticKind.CssConflict
 }
@@ -29,7 +31,7 @@ export type InvalidApplyDiagnostic = Diagnostic & {
 }
 
 export function isInvalidApplyDiagnostic(
-  diagnostic: AugmentedDiagnostic
+  diagnostic: AugmentedDiagnostic,
 ): diagnostic is InvalidApplyDiagnostic {
   return diagnostic.code === DiagnosticKind.InvalidApply
 }
@@ -40,7 +42,7 @@ export type InvalidScreenDiagnostic = Diagnostic & {
 }
 
 export function isInvalidScreenDiagnostic(
-  diagnostic: AugmentedDiagnostic
+  diagnostic: AugmentedDiagnostic,
 ): diagnostic is InvalidScreenDiagnostic {
   return diagnostic.code === DiagnosticKind.InvalidScreen
 }
@@ -51,7 +53,7 @@ export type InvalidVariantDiagnostic = Diagnostic & {
 }
 
 export function isInvalidVariantDiagnostic(
-  diagnostic: AugmentedDiagnostic
+  diagnostic: AugmentedDiagnostic,
 ): diagnostic is InvalidVariantDiagnostic {
   return diagnostic.code === DiagnosticKind.InvalidVariant
 }
@@ -62,7 +64,7 @@ export type InvalidConfigPathDiagnostic = Diagnostic & {
 }
 
 export function isInvalidConfigPathDiagnostic(
-  diagnostic: AugmentedDiagnostic
+  diagnostic: AugmentedDiagnostic,
 ): diagnostic is InvalidConfigPathDiagnostic {
   return diagnostic.code === DiagnosticKind.InvalidConfigPath
 }
@@ -73,9 +75,19 @@ export type InvalidTailwindDirectiveDiagnostic = Diagnostic & {
 }
 
 export function isInvalidTailwindDirectiveDiagnostic(
-  diagnostic: AugmentedDiagnostic
+  diagnostic: AugmentedDiagnostic,
 ): diagnostic is InvalidTailwindDirectiveDiagnostic {
   return diagnostic.code === DiagnosticKind.InvalidTailwindDirective
+}
+
+export type InvalidSourceDirectiveDiagnostic = Diagnostic & {
+  code: DiagnosticKind.InvalidSourceDirective
+}
+
+export function isInvalidSourceDirectiveDiagnostic(
+  diagnostic: AugmentedDiagnostic,
+): diagnostic is InvalidSourceDirectiveDiagnostic {
+  return diagnostic.code === DiagnosticKind.InvalidSourceDirective
 }
 
 export type RecommendedVariantOrderDiagnostic = Diagnostic & {
@@ -84,9 +96,19 @@ export type RecommendedVariantOrderDiagnostic = Diagnostic & {
 }
 
 export function isRecommendedVariantOrderDiagnostic(
-  diagnostic: AugmentedDiagnostic
+  diagnostic: AugmentedDiagnostic,
 ): diagnostic is RecommendedVariantOrderDiagnostic {
   return diagnostic.code === DiagnosticKind.RecommendedVariantOrder
+}
+
+export type UsedBlocklistedClassDiagnostic = Diagnostic & {
+  code: DiagnosticKind.UsedBlocklistedClass
+}
+
+export function isUsedBlocklistedClass(
+  diagnostic: AugmentedDiagnostic,
+): diagnostic is UsedBlocklistedClassDiagnostic {
+  return diagnostic.code === DiagnosticKind.UsedBlocklistedClass
 }
 
 export type AugmentedDiagnostic =
@@ -96,4 +118,6 @@ export type AugmentedDiagnostic =
   | InvalidVariantDiagnostic
   | InvalidConfigPathDiagnostic
   | InvalidTailwindDirectiveDiagnostic
+  | InvalidSourceDirectiveDiagnostic
   | RecommendedVariantOrderDiagnostic
+  | UsedBlocklistedClassDiagnostic

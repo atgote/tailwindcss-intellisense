@@ -1,10 +1,10 @@
 {
   "name": "vscode-tailwindcss",
+  "version": "0.14.15",
   "displayName": "Tailwind CSS IntelliSense",
   "description": "Intelligent Tailwind CSS tooling for VS Code",
   "author": "Brad Cornes <hello@bradley.dev>",
   "license": "MIT",
-  "version": "0.10.0",
   "homepage": "https://github.com/tailwindlabs/tailwindcss-intellisense",
   "bugs": {
     "url": "https://github.com/tailwindlabs/tailwindcss-intellisense/issues",
@@ -64,7 +64,7 @@
       {
         "command": "tailwindCSS.sortSelection",
         "title": "Tailwind CSS: Sort Selection",
-        "enablement": "editorHasSelection && resourceScheme == file && tailwindCSS.activeTextEditorSupportsClassSorting"
+        "enablement": "editorHasSelection && (resourceScheme == file || resourceScheme == vscode-remote) && tailwindCSS.activeTextEditorSupportsClassSorting"
       }
     ],
     "grammars": [
@@ -83,7 +83,9 @@
           "source.css",
           "source.vue",
           "source.svelte",
-          "text.html"
+          "text.html",
+          "source.gjs",
+          "source.gts"
         ]
       },
       {
@@ -108,7 +110,9 @@
           "source.css.postcss",
           "source.vue",
           "source.svelte",
-          "text.html"
+          "text.html",
+          "source.gjs",
+          "source.gts"
         ]
       },
       {
@@ -119,7 +123,9 @@
           "source.css.postcss",
           "source.vue",
           "source.svelte",
-          "text.html"
+          "text.html",
+          "source.gjs",
+          "source.gts"
         ]
       },
       {
@@ -130,7 +136,9 @@
           "source.css.postcss",
           "source.vue",
           "source.svelte",
-          "text.html"
+          "text.html",
+          "source.gjs",
+          "source.gts"
         ]
       }
     ],
@@ -171,9 +179,18 @@
           "default": [
             "class",
             "className",
-            "ngClass"
+            "ngClass",
+            "class:list"
           ],
           "markdownDescription": "The HTML attributes for which to provide class completions, hover previews, linting etc."
+        },
+        "tailwindCSS.classFunctions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "The function or tagged template literal names for which to provide class completions, hover previews, linting etc."
         },
         "tailwindCSS.suggestions": {
           "type": "boolean",
@@ -191,6 +208,12 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Enable code actions.",
+          "scope": "language-overridable"
+        },
+        "tailwindCSS.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable code lens.",
           "scope": "language-overridable"
         },
         "tailwindCSS.colorDecorators": {
@@ -282,6 +305,17 @@
           "markdownDescription": "Class variants not in the recommended order (applies in [JIT mode](https://tailwindcss.com/docs/just-in-time-mode) only)",
           "scope": "language-overridable"
         },
+        "tailwindCSS.lint.usedBlocklistedClass": {
+          "type": "string",
+          "enum": [
+            "ignore",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "markdownDescription": "Usage of class names that have been blocklisted via `@source not inline(…)`",
+          "scope": "language-overridable"
+        },
         "tailwindCSS.experimental.classRegex": {
           "type": "array",
           "scope": "language-overridable"
@@ -312,33 +346,50 @@
           ],
           "default": null,
           "markdownDescription": "Enable the Node.js inspector agent for the language server and listen on the specified port."
+        },
+        "tailwindcss-intellisense.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the Tailwind CSS Language Server."
         }
       }
     }
   },
   "scripts": {
-    "_esbuild": "node ../../esbuild.js src/extension.ts src/server.ts src/cssServer.ts --outdir=dist --external=pnpapi --external=vscode --external=lightningcss --external=@tailwindcss/oxide",
-    "dev": "concurrently --raw --kill-others \"npm run watch\" \"npm run check -- --watch\"",
-    "watch": "npm run clean && npm run _esbuild -- --watch",
-    "build": "npm run check && npm run clean && npm run _esbuild -- --minify && move-file dist/server.js dist/tailwindServer.js && move-file dist/cssServer.js dist/tailwindModeServer.js",
-    "package": "vsce package",
-    "publish": "vsce publish",
+    "_esbuild": "node ../../esbuild.mjs src/extension.ts src/server.ts src/cssServer.ts --outdir=dist",
+    "dev": "concurrently --raw --kill-others \"pnpm run watch\" \"pnpm run check --watch\"",
+    "watch": "pnpm run clean && pnpm run _esbuild --watch",
+    "build": "pnpm run check && pnpm run clean && pnpm run _esbuild --minify && move-file dist/server.js dist/tailwindServer.js && move-file dist/cssServer.js dist/tailwindModeServer.js",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies",
     "copy:notices": "cp ../tailwindcss-language-server/ThirdPartyNotices.txt ./dist/ThirdPartyNotices.txt",
-    "vscode:prepublish": "npm run build && npm run copy:notices",
+    "vscode:prepublish": "pnpm run build && pnpm run copy:notices",
     "clean": "rimraf dist",
     "check": "tsc --noEmit"
   },
   "devDependencies": {
+    "@tailwindcss/language-server": "workspace:*",
+    "@tailwindcss/language-service": "workspace:*",
     "@types/braces": "3.0.1",
+    "@types/picomatch": "^2.3.3",
     "@types/vscode": "1.65.0",
-    "braces": "3.0.2",
+    "@vscode/vsce": "2.21.1",
+    "braces": "3.0.3",
     "color-name": "1.1.4",
     "concurrently": "7.0.0",
-    "minimatch": "5.1.4",
+    "esbuild": "^0.25.0",
+    "minimist": "^1.2.8",
     "move-file-cli": "3.0.0",
     "normalize-path": "3.0.0",
+    "picomatch": "^4.0.1",
     "rimraf": "3.0.2",
-    "vsce": "2.15.0",
+    "typescript": "5.3.3",
     "vscode-languageclient": "8.0.2"
   }
 }

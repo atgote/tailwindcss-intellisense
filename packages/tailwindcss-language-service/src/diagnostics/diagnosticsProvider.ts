@@ -1,6 +1,6 @@
 import type { TextDocument } from 'vscode-languageserver-textdocument'
-import { State } from '../util/state'
-import { DiagnosticKind, AugmentedDiagnostic } from './types'
+import type { State } from '../util/state'
+import { DiagnosticKind, type AugmentedDiagnostic } from './types'
 import { getCssConflictDiagnostics } from './getCssConflictDiagnostics'
 import { getInvalidApplyDiagnostics } from './getInvalidApplyDiagnostics'
 import { getInvalidScreenDiagnostics } from './getInvalidScreenDiagnostics'
@@ -8,6 +8,8 @@ import { getInvalidVariantDiagnostics } from './getInvalidVariantDiagnostics'
 import { getInvalidConfigPathDiagnostics } from './getInvalidConfigPathDiagnostics'
 import { getInvalidTailwindDirectiveDiagnostics } from './getInvalidTailwindDirectiveDiagnostics'
 import { getRecommendedVariantOrderDiagnostics } from './getRecommendedVariantOrderDiagnostics'
+import { getInvalidSourceDiagnostics } from './getInvalidSourceDiagnostics'
+import { getUsedBlocklistedClassDiagnostics } from './getUsedBlocklistedClassDiagnostics'
 
 export async function doValidate(
   state: State,
@@ -19,8 +21,10 @@ export async function doValidate(
     DiagnosticKind.InvalidVariant,
     DiagnosticKind.InvalidConfigPath,
     DiagnosticKind.InvalidTailwindDirective,
+    DiagnosticKind.InvalidSourceDirective,
     DiagnosticKind.RecommendedVariantOrder,
-  ]
+    DiagnosticKind.UsedBlocklistedClass,
+  ],
 ): Promise<AugmentedDiagnostic[]> {
   const settings = await state.editor.getConfiguration(document.uri)
 
@@ -44,8 +48,14 @@ export async function doValidate(
         ...(only.includes(DiagnosticKind.InvalidTailwindDirective)
           ? getInvalidTailwindDirectiveDiagnostics(state, document, settings)
           : []),
+        ...(only.includes(DiagnosticKind.InvalidSourceDirective)
+          ? getInvalidSourceDiagnostics(state, document, settings)
+          : []),
         ...(only.includes(DiagnosticKind.RecommendedVariantOrder)
           ? await getRecommendedVariantOrderDiagnostics(state, document, settings)
+          : []),
+        ...(only.includes(DiagnosticKind.UsedBlocklistedClass)
+          ? await getUsedBlocklistedClassDiagnostics(state, document, settings)
           : []),
       ]
     : []

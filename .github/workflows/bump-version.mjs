@@ -1,44 +1,44 @@
-import latestSemver from 'latest-semver'
-import * as fs from 'fs/promises'
-import assert from 'assert'
+import PackageJson from '@npmcli/package-json'
+import assert from 'node:assert'
+import * as path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import semver from 'semver'
 
-async function bumpVersion() {
-  let res = await fetch(
-    'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery',
-    {
-      method: 'POST',
-      headers: {
-        accept: 'application/json;api-version=7.2-preview.1;excludeUrls=true',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        assetTypes: null,
-        flags: 2151,
-        filters: [
-          {
-            criteria: [{ filterType: 7, value: 'bradlc.vscode-tailwindcss' }],
-            direction: 2,
-            pageSize: 100,
-            pageNumber: 1,
-            sortBy: 0,
-            sortOrder: 0,
-            pagingToken: null,
-          },
-        ],
-      }),
-    }
-  )
-  let { results } = await res.json()
-  let versions = results[0].extensions[0].versions.map(({ version }) => version)
-  let latest = latestSemver(versions)
-  let parts = latest.split('.')
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
-  assert(Number(parts[1]) % 2 === 1)
+// Let `vsce` get the metadata for the extension
+// Querying the marketplace API directly is not supported or recommended
+let result = spawnSync(
+  path.resolve(__dirname, '../../packages/vscode-tailwindcss/node_modules/.bin/vsce'),
+  ['show', 'bradlc.vscode-tailwindcss', '--json'],
+  { encoding: 'utf8' },
+)
 
-  let nextVersion = `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`
-  let pkgFilename = 'packages/vscode-tailwindcss/package.json'
-  let pkg = JSON.parse(await fs.readFile(pkgFilename, 'utf8'))
-  await fs.writeFile(pkgFilename, JSON.stringify({ ...pkg, version: nextVersion }, null, 2), 'utf8')
+let metadata = JSON.parse(result.stdout)
+
+if (!metadata) {
+  console.error(result.error)
+  throw new Error('Failed to get extension metadata')
 }
 
-bumpVersion()
+/** @type {string[]} */
+let versions = metadata.versions.map(({ version }) => version)
+
+// Determine the latest version of the extension
+let latest = versions
+  .map((v) => semver.parse(v, { includePrerelease: true, loose: false }))
+  .filter((v) => v !== null)
+  .filter((v) => v.prerelease.length === 0)
+  .sort((a, b) => b.compare(a) || b.compareBuild(a))
+  .at(0)
+
+// Require the minor version to be odd. This is done because
+// the VSCode Marketplace suggests using odd numbers for
+// pre-release builds and even ones for release builds
+assert(latest && latest.minor % 2 === 1)
+
+// Bump the patch version in `package.json`
+let nextVersion = latest.inc('patch').format()
+let pkg = await PackageJson.load('packages/vscode-tailwindcss')
+await pkg.update({ version: nextVersion }).save()

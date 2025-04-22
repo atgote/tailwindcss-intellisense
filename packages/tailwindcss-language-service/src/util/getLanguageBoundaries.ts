@@ -1,14 +1,19 @@
 import type { Range } from 'vscode-languageserver'
 import type { TextDocument } from 'vscode-languageserver-textdocument'
 import { isVueDoc, isHtmlDoc, isSvelteDoc } from './html'
-import { State } from './state'
+import type { State } from './state'
 import { indexToPosition } from './find'
 import { isJsDoc } from './js'
 import moo from 'moo'
 import Cache from 'tmp-cache'
 import { getTextWithoutComments } from './doc'
+import { isCssLanguage } from './css'
 
-export type LanguageBoundary = { type: 'html' | 'js' | 'css' | (string & {}); range: Range }
+export type LanguageBoundary = {
+  type: 'html' | 'js' | 'jsx' | 'css' | (string & {})
+  range: Range
+  lang?: string
+}
 
 let htmlScriptTypes = [
   // https://v3-migration.vuejs.org/breaking-changes/inline-template-attribute.html#option-1-use-script-tag
@@ -17,6 +22,11 @@ let htmlScriptTypes = [
   'text/x-template',
   // https://github.com/tailwindlabs/tailwindcss-intellisense/issues/722
   'text/x-handlebars-template',
+]
+
+let jsxScriptTypes = [
+  // https://github.com/tailwindlabs/tailwindcss-intellisense/issues/906
+  'text/babel',
 ]
 
 let text = { text: { match: /[^]/, lineBreaks: true } }
@@ -92,6 +102,13 @@ let vueStates = {
     htmlBlockStart: { match: '<template', push: 'htmlBlock' },
     ...states.main,
   },
+
+  cssBlock: {
+    langAttrStartDouble: { match: 'lang="', push: 'langAttrDouble' },
+    langAttrStartSingle: { match: "lang='", push: 'langAttrSingle' },
+    ...states.cssBlock,
+  },
+
   htmlBlock: {
     htmlStart: { match: '>', next: 'html' },
     htmlBlockEnd: { match: '/>', pop: 1 },
@@ -122,10 +139,14 @@ let vueLexer = moo.states(vueStates)
 
 let cache = new Cache<string, LanguageBoundary[] | null>({ max: 25, maxAge: 1000 })
 
+export function clearLanguageBoundariesCache() {
+  cache.clear()
+}
+
 export function getLanguageBoundaries(
   state: State,
   doc: TextDocument,
-  text: string = doc.getText()
+  text: string = doc.getText(),
 ): LanguageBoundary[] | null {
   let cacheKey = `${doc.languageId}:${text}`
 
@@ -139,10 +160,10 @@ export function getLanguageBoundaries(
   let defaultType = isVueDoc(doc)
     ? 'none'
     : isHtmlDoc(state, doc) || isSvelteDoc(doc)
-    ? 'html'
-    : isJs
-    ? 'jsx'
-    : null
+      ? 'html'
+      : isJs
+        ? 'jsx'
+        : null
 
   if (defaultType === null) {
     cache.set(cacheKey, null)
@@ -176,8 +197,18 @@ export function getLanguageBoundaries(
           boundaries.push({ type: defaultType, range: { start: position, end: undefined } })
         } else if (token.type === 'lang') {
           boundaries[boundaries.length - 1].type = token.text
+
+          if (token.text === 'tsx') {
+            boundaries[boundaries.length - 1].type = 'jsx'
+            boundaries[boundaries.length - 1].lang = 'tsx'
+          } else if (token.text === 'ts') {
+            boundaries[boundaries.length - 1].type = 'js'
+            boundaries[boundaries.length - 1].lang = 'ts'
+          }
         } else if (token.type === 'type' && htmlScriptTypes.includes(token.text)) {
           boundaries[boundaries.length - 1].type = 'html'
+        } else if (token.type === 'type' && jsxScriptTypes.includes(token.text)) {
+          boundaries[boundaries.length - 1].type = 'jsx'
         }
       }
       offset += token.text.length
@@ -192,6 +223,14 @@ export function getLanguageBoundaries(
   }
 
   cache.set(cacheKey, boundaries)
+
+  for (let boundary of boundaries) {
+    if (boundary.type === 'css') continue
+    if (!isCssLanguage(state, boundary.type)) continue
+
+    boundary.lang = boundary.type
+    boundary.type = 'css'
+  }
 
   return boundaries
 }
